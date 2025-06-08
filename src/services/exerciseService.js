@@ -38,6 +38,15 @@ const getAllExercises = async () => {
   }
 };
 
+const getAllExercisesByRequiredGym = async (requiredGym) => {
+  try {
+    return await Exercise.find({requiredGym: requiredGym});
+  } catch (err) {
+    console.error('Error al obtener ejercicios:', err);
+    throw err;
+  }
+};
+
 const getExerciseById = async (id) => {
   try {
     const exercise = await Exercise.findById(id);
@@ -78,4 +87,4 @@ const updateExerciseById = async (id, data) => {
   }
 }
 
-module.exports = { insertExercise, getAllExercises, getExerciseById, getExerciseByName, deleteExerciseById, updateExerciseById, insertManyExercises };
+module.exports = { insertExercise, getAllExercises, getExerciseById, getExerciseByName, deleteExerciseById, updateExerciseById, insertManyExercises, getAllExercisesByRequiredGym };

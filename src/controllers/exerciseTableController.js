@@ -1,10 +1,12 @@
-const { createExerciseTable, getExerciseTablesByUser, getExerciseTableById, updateExerciseTable, getExerciseTableByName, deleteExerciseTable } = require('../services/exerciseTableService');
+const { createExerciseTable, getExerciseTablesByUser, getExerciseTableById, updateExerciseTable, getExerciseTableByName, deleteExerciseTable, createAutoTable, createAutoFullBodyTable } = require('../services/exerciseTableService');
 
 const exerciseTableController = {
   createTable: [
     async (req, res) => {
     try {
-      const table = await createExerciseTable(req.body);
+      const userId = req.user.id;
+      const data = req.body
+      const table = await createExerciseTable(userId, data);
       res.status(201).json(table);
     } catch (err) {
       console.log('Ha ocurrido un error: ', err)
@@ -63,13 +65,49 @@ const exerciseTableController = {
   deleteExerciseTable: [
     async(req, res) => {
       try{
-        const id = req.params;
-        const exerciseTable =  await deleteExerciseTable(id);
-        res.status(200).json({message: 'tanla eliminada'});
+        const id = req.params.id;
+        await deleteExerciseTable(id);
+        res.status(200).json({message: 'tabla eliminada'});
       }catch(err){
         console.log('Ha ocurrido un error: ', err);
         res.status(404).json({error: err.message});
       }
+    }
+  ],
+  createAutoTable: [
+    async(req, res) => {
+       try {
+    const userId = req.user.id; // Middleware auth añade req.user
+    const { requiredGym } = req.body;
+
+    if (requiredGym === undefined) {
+      return res.status(400).json({ message: 'El campo requiredGym es obligatorio.' });
+    }
+
+    const exerciseTable = await createAutoTable(userId, requiredGym);
+    res.status(201).json(exerciseTable);
+  } catch (error) {
+    console.error('Error creando tabla automática:', error);
+    res.status(500).json({ message: 'Error al crear la tabla automática.' });
+  }
+    }
+  ],
+   createAutoFullBodyTable: [
+    async(req, res) => {
+       try {
+    const userId = req.user.id; // Middleware auth añade req.user
+    const { requiredGym } = req.body;
+
+    if (requiredGym === undefined) {
+      return res.status(400).json({ message: 'El campo requiredGym es obligatorio.' });
+    }
+
+    const exerciseTable = await createAutoFullBodyTable(userId, requiredGym);
+    res.status(201).json(exerciseTable);
+  } catch (error) {
+    console.error('Error creando tabla automática:', error);
+    res.status(500).json({ message: 'Error al crear la tabla automática.' });
+  }
     }
   ]
 

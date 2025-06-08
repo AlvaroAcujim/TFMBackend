@@ -1,4 +1,4 @@
-const { insertExercise, getAllExercises, getExerciseById, getExerciseByName, deleteExerciseById, updateExerciseById, insertManyExercises} = require('../services/exerciseService');
+const { insertExercise, getAllExercises, getExerciseById, getExerciseByName, deleteExerciseById, updateExerciseById, insertManyExercises, getAllExercisesByRequiredGym} = require('../services/exerciseService');
 
 const exerciseController = {
   createExercise:[ 
@@ -27,6 +27,17 @@ const exerciseController = {
   async (req, res) => {
     try {
       const exercises = await getAllExercises();
+      res.status(200).json(exercises);
+    } catch (err) {
+      console.log('Ha ocurrido un error: ', err)
+      res.status(500).json({ error: err.message });
+    }
+  }],
+  getExercisesByRequiredGym: [
+  async (req, res) => {
+    try {
+      const {requiredGym} = req.params;
+      const exercises = await getAllExercisesByRequiredGym(requiredGym);
       res.status(200).json(exercises);
     } catch (err) {
       console.log('Ha ocurrido un error: ', err)

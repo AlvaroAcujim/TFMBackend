@@ -5,10 +5,16 @@ const exerciseTableSchema = new mongoose.Schema({
     type: String, 
     required: true 
 }, // Por ejemplo: "Rutina de pecho"
-  exercises: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Exercise',
-    required: true
+  exercisesByDay: [{
+    day: { 
+      type: String, 
+      required: true,
+      enum: ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'] // o puedes usar abreviaturas
+    },
+    exercises: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Exercise'
+    }]
   }],
   user: {
     type: mongoose.Schema.Types.ObjectId,
