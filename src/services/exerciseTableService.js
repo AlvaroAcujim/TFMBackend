@@ -1,5 +1,6 @@
 const ExerciseTable = require('../models/ExerciseTable');
 const Exercise = require('../models/Exercise');
+const {getImagesBase64ByFilenames} =  require('../services/fileService');
 const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
 
 const createExerciseTable = async (user, data) => {
@@ -115,10 +116,8 @@ const deleteExerciseTable = async (tableId) => {
 };
 const createAutoFullBodyTable = async (userId, requiredGym) => {
 try {
-    // 1️⃣ Traer todos los ejercicios con requiredGym
     const allExercises = await Exercise.find({ requiredGym });
 
-    // 2️⃣ Agrupar ejercicios por grupo muscular
     const exercisesByGroup = {
       'Piernas': [],
       'Pectorales': [],
@@ -139,8 +138,7 @@ try {
       }
     });
 
-    // 3️⃣ Preparar 3 días
-    const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    const daysOfWeek = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
     const usedExerciseIds = new Set();
     const exercisesByDay = [];
 
@@ -153,11 +151,9 @@ try {
         );
 
         if (availableExercises.length > 0) {
-          // Elegir aleatoriamente
           const randomIndex = Math.floor(Math.random() * availableExercises.length);
           const selectedId = availableExercises[randomIndex];
 
-          // Añadir al día y marcar como usado
           dayExercises.push(selectedId);
           usedExerciseIds.add(selectedId);
         }
@@ -169,7 +165,6 @@ try {
       });
     });
 
-    // 4️⃣ Crear y guardar la tabla
     const table = new ExerciseTable({
       name: 'Full Body 3 Días',
       exercisesByDay,
@@ -186,10 +181,8 @@ try {
 }
 const createAutoTable = async (userId, requiredGym) => {
   try{
-  // 1️⃣ Traemos todos los ejercicios filtrados por requiredGym
   const allExercises = await Exercise.find({ requiredGym });
 
-  // 2️⃣ Agrupamos por grupo muscular
   const muscleGroups = [
     'Piernas',
     'Pectorales',
@@ -208,27 +201,22 @@ const createAutoTable = async (userId, requiredGym) => {
     );
   });
 
-  // 3️⃣ Definimos días de la semana
-  const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+  const days = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
   const usedExerciseIds = new Set();
 
-  // 4️⃣ Planificamos cada día
   const exercisesByDay = [];
 
   for (const day of days) {
     let dayExercises = [];
 
-    // 5️⃣ Elegimos un grupo muscular principal que aún tenga ejercicios
     let primaryMuscle = muscleGroups.find(
       m => exercisesByMuscle[m]?.length > 0
     );
 
-    // 6️⃣ Si no quedan grupos, salimos
     if (!primaryMuscle) break;
 
     switch (primaryMuscle) {
       case 'Bíceps':
-        // 3 de Bíceps + 3 de Tríceps
         dayExercises.push(
           ...exercisesByMuscle['Bíceps'].splice(0, 3).map(e => e._id)
         );
@@ -238,7 +226,6 @@ const createAutoTable = async (userId, requiredGym) => {
         break;
 
       case 'Piernas':
-        // 5 de Piernas + 1 de Gemelos (si hay)
         dayExercises.push(
           ...exercisesByMuscle['Piernas'].splice(0, 5).map(e => e._id)
         );
@@ -250,14 +237,12 @@ const createAutoTable = async (userId, requiredGym) => {
         break;
 
       default:
-        // 6 de ese grupo
         dayExercises.push(
           ...exercisesByMuscle[primaryMuscle].splice(0, 6).map(e => e._id)
         );
         break;
     }
 
-    // 7️⃣ Si hay abdominales, añadir preferiblemente con Hombros
     if (primaryMuscle === 'Hombros' && exercisesByMuscle['Abdominales'].length > 0) {
       const abExercise = exercisesByMuscle['Abdominales'].shift();
       dayExercises.push(abExercise._id);
@@ -267,18 +252,14 @@ const createAutoTable = async (userId, requiredGym) => {
       dayExercises.push(abExercise._id);
     }
 
-    // 8️⃣ Evitamos duplicados en toda la tabla
     dayExercises = dayExercises.filter(id => !usedExerciseIds.has(id));
     dayExercises.forEach(id => usedExerciseIds.add(id));
 
-    // 9️⃣ Guardamos el día
     exercisesByDay.push({
       day,
       exercises: dayExercises
     });
   }
-
-  // 10️⃣ Creamos la tabla
   const exerciseTable = new ExerciseTable({
     name: `Tabla automática - ${requiredGym ? 'Gimnasio' : 'Casa'}`,
     exercisesByDay,
@@ -291,6 +272,33 @@ const createAutoTable = async (userId, requiredGym) => {
     console.error(err);
     throw new Error('Error generando la tabla automátizada');
   }
+
+};
+const getImagesForExerciseTable = async (tableId) => {
+   const table = await ExerciseTable.findById(tableId)
+    .populate({
+      path: 'exercisesByDay.exercises',
+    });
+
+  if (!table) throw new Error('Tabla no encontrada');
+
+  const exercises = [];
+  table.exercisesByDay.forEach((day) => {
+    day.exercises.forEach((exercise) => {
+      if (exercise && exercise.image) {
+        exercises.push({ name: exercise.name, image: exercise.image });
+      }
+    });
+  });
+
+
+  const filenames = exercises.map((ex) => ex.image);
+  const images = await getImagesBase64ByFilenames(filenames);
+
+  return images.map((img, index) => ({
+    name: exercises[index].name,
+    image: img.base64Image
+  }));
 };
 
-module.exports = { createExerciseTable, getExerciseTablesByUser, getExerciseTableById, updateExerciseTable, getExerciseTableByName, deleteExerciseTable, createAutoTable, createAutoFullBodyTable };
+module.exports = { createExerciseTable, getExerciseTablesByUser, getExerciseTableById, updateExerciseTable, getExerciseTableByName, deleteExerciseTable, createAutoTable, createAutoFullBodyTable, getImagesForExerciseTable };

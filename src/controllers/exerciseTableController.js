@@ -1,4 +1,4 @@
-const { createExerciseTable, getExerciseTablesByUser, getExerciseTableById, updateExerciseTable, getExerciseTableByName, deleteExerciseTable, createAutoTable, createAutoFullBodyTable } = require('../services/exerciseTableService');
+const { createExerciseTable, getExerciseTablesByUser, getExerciseTableById, updateExerciseTable, getExerciseTableByName, deleteExerciseTable, createAutoTable, createAutoFullBodyTable, getImagesForExerciseTable } = require('../services/exerciseTableService');
 
 const exerciseTableController = {
   createTable: [
@@ -107,6 +107,17 @@ const exerciseTableController = {
   } catch (error) {
     console.error('Error creando tabla automática:', error);
     res.status(500).json({ message: 'Error al crear la tabla automática.' });
+  }
+    }
+  ],
+  getImagesForTable:[
+    async(req, res, next) => {
+      try {
+    const { tableId } = req.params;
+    const images = await getImagesForExerciseTable(tableId);
+    res.json(images);
+  } catch (err) {
+    next(err);
   }
     }
   ]

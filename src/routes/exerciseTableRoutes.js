@@ -7,6 +7,7 @@ router.post('/', verifyToken(['user', 'admin']), tableController.createTable);
 router.post('/auto', verifyToken(['user', 'admin']), tableController.createAutoTable);
 router.post('/autoFullBody', verifyToken(['user', 'admin']), tableController.createAutoFullBodyTable);
 router.get('/user', verifyToken(['user', 'admin']), tableController.getExerciseTablesByUser);
+router.get('/:tableId/images', tableController.getImagesForTable);
 router.get('/search', verifyToken(['user', 'admin']), tableController.getExerciseTableByName);
 router.get('/:id', verifyToken(['user', 'admin']), tableController.getExerciseTableById);
 router.put('/', verifyToken(['user', 'admin']), tableController.updateExerciseTable);

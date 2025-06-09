@@ -15,10 +15,10 @@ const app = express();
 app.use(express.json());
 
 app.use(cookieParser());
-
+//https://tfm-frontend-flame.vercel.app
 app.use(cors(
   {
-    origin: 'https://tfm-frontend-flame.vercel.app', 
+    origin: 'http://localhost:5173', 
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']              
