@@ -61,12 +61,11 @@ const getExerciseTableById = async (id) => {
 
 const updateExerciseTable = async (id, data) => {
   try {
-    const { name, exercisesByDay, user } = data;
+    const { name, exercisesByDay} = data;
 
     if (
       !name || 
-      !exercisesByDay || 
-      !user
+      !exercisesByDay 
     ) {
       throw new Error('Rellene todos los campos');
     }
@@ -80,7 +79,7 @@ const updateExerciseTable = async (id, data) => {
       }
     });
 
-    const updatedTable = await ExerciseTable.findByIdAndUpdate({ _id: id },{ name, exercisesByDay, user },{ new: true });
+    const updatedTable = await ExerciseTable.findByIdAndUpdate({ _id: id },{ name, exercisesByDay },{ new: true });
 
     if (!updatedTable) throw new Error('exerciseTable no encontrada');
     return updatedTable;

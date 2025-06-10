@@ -1,4 +1,4 @@
-const {insertUser, loginUser, getUserByid, getUserByUsernameOrEmail} = require('../services/userServices');
+const {insertUser, loginUser, getUserByid, getUserByUsernameOrEmail, loginUserToken} = require('../services/userServices');
 const {createUserValidations, getUserByIdValidation, loginValidation, getUserByIdentifierValidation} = require('../validations/userValidations')
 const userController = {
     createUser: [
@@ -53,6 +53,17 @@ const userController = {
                 res.status(401).json({message: 'Error al logearte'})
             }
         },
+    ],
+    loginUserToken:[
+        async(req, res) => {
+             try{
+                const userId = req.user.id;
+                const result = await loginUserToken(userId);
+                res.status(200).json(result);
+            }catch(err){
+                res.status(401).json({message: 'Error al logearte'})
+            }
+        }
     ],
     logoutUser: [
         async (req, res) => {

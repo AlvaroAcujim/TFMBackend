@@ -10,7 +10,7 @@ router.get('/user', verifyToken(['user', 'admin']), tableController.getExerciseT
 router.get('/:tableId/images', tableController.getImagesForTable);
 router.get('/search', verifyToken(['user', 'admin']), tableController.getExerciseTableByName);
 router.get('/:id', verifyToken(['user', 'admin']), tableController.getExerciseTableById);
-router.put('/', verifyToken(['user', 'admin']), tableController.updateExerciseTable);
+router.put('/:id', verifyToken(['user', 'admin']), tableController.updateExerciseTable);
 router.delete('/:id', verifyToken(['user', 'admin']), tableController.deleteExerciseTable);
 
 

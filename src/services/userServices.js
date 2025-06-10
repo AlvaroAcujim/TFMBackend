@@ -89,4 +89,17 @@ const SECRET_KEY = config.SECRET_KEY;
             throw err;
         }
   };
-  module.exports = {insertUser, getUserByid, loginUser, getUserByUsernameOrEmail};
+
+  const loginUserToken = async(userId) => {
+    try{
+         const user = await User.findById(userId).select('-password'); // Excluye la contraseña
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+    return user;
+    }catch (err) {
+            console.log('Error al obtener el user del token: ' , err);
+            throw err;
+        }
+  }
+  module.exports = {insertUser, getUserByid, loginUser, getUserByUsernameOrEmail, loginUserToken};

@@ -39,9 +39,9 @@ const exerciseTableController = {
   updateExerciseTable: [
     async(req, res) => {
       try{
-        const idUser = req.user.id;
+        const idTable = req.params.id;
         const data = req.body;
-        const exerciseTable = await updateExerciseTable(idUser, data);
+        const exerciseTable = await updateExerciseTable(idTable, data);
         res.status(200).json(exerciseTable);
       }catch(err){
         console.log('Ha ocurrido un error: ', err)
@@ -95,7 +95,7 @@ const exerciseTableController = {
    createAutoFullBodyTable: [
     async(req, res) => {
        try {
-    const userId = req.user.id; // Middleware auth añade req.user
+    const userId = req.user.id; 
     const { requiredGym } = req.body;
 
     if (requiredGym === undefined) {
