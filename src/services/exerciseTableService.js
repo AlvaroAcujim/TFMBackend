@@ -1,8 +1,9 @@
 const ExerciseTable = require('../models/ExerciseTable');
 const Exercise = require('../models/Exercise');
 const {getImagesBase64ByFilenames} =  require('../services/fileService');
-const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
-
+const axios = require('axios');
+//const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
+//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
 const createExerciseTable = async (user, data) => {
   try {
     const { name, exercisesByDay } = data;
@@ -113,165 +114,230 @@ const deleteExerciseTable = async (tableId) => {
     throw err;
   }
 };
+const cleanJSONfromText = (text) => {
+  const first = text.indexOf('[');
+  const last = text.lastIndexOf(']');
+  if (first === -1 || last === -1) return null;
+  return text.substring(first, last + 1);
+};
+
+async function callTogetherAI(prompt, options = {}) {
+  const { timeout = 30000 } = options;
+  const response = await axios.post(
+    'https://api.together.xyz/v1/chat/completions',
+    {
+      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1', // o meta-llama/Llama-3-8b-Instruct
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 1024,
+      temperature: 0.4,
+      stop: ['```', '\n\n'] // evita respuestas demasiado largas o código extra
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      timeout,
+    }
+  );
+  return response.data.choices[0].message.content;
+}
+
 const createAutoFullBodyTable = async (userId, requiredGym) => {
-try {
+  try {
+    if (!process.env.API_KEY) throw new Error('TOGETHER_API_KEY no definida');
+
     const allExercises = await Exercise.find({ requiredGym });
+    if (!allExercises.length) throw new Error('No se encontraron ejercicios');
 
-    const exercisesByGroup = {
-      'Piernas': [],
-      'Pectorales': [],
-      'Espalda': [],
-      'Hombros': [],
-      'Bíceps-Tríceps': [],
-      'Abdominales': []
-    };
+    const exercisesListStr = allExercises.map(e => `${e._id.toString()}: ${e.name}`).join('\n');
 
-    allExercises.forEach(exercise => {
-      const muscle = exercise.muscle;
-      if (muscle === 'Piernas' || muscle === 'Gemelos') {
-        exercisesByGroup['Piernas'].push(exercise._id);
-      } else if (muscle === 'Bíceps' || muscle === 'Tríceps') {
-        exercisesByGroup['Bíceps-Tríceps'].push(exercise._id);
-      } else if (exercisesByGroup[muscle]) {
-        exercisesByGroup[muscle].push(exercise._id);
-      }
-    });
+   const prompt = `
+Eres un entrenador personal experto. Crea una rutina semanal full body para principiantes, 5 días (Lunes a Viernes).
+Cada día debe incluir **estrictamente entre 6 y 8 ejercicios** variados, sin repetir ejercicios en la semana.
+Distribuye los ejercicios de forma que cada día incluya ejercicios de diferentes grupos musculares,
+y que ningún grupo muscular tenga más de 1 o 2 ejercicios por día para evitar concentración excesiva en un solo grupo.
+Usa solo los ejercicios listados, sin inventar.
+Devuelve **SOLO un JSON válido y EXACTO** con este formato:
 
-    const daysOfWeek = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
-    const usedExerciseIds = new Set();
-    const exercisesByDay = [];
+[
+  { "day": "Lunes", "exercises": ["id1", "id2", "id3", "id4", "id5", "id6"] },
+  ...
+]
 
-    daysOfWeek.forEach(day => {
-      const dayExercises = [];
+Lista de ejercicios con id y nombre:
+${exercisesListStr}
+`;
 
-      for (const group in exercisesByGroup) {
-        const availableExercises = exercisesByGroup[group].filter(
-          id => !usedExerciseIds.has(id)
-        );
+    const content = await callTogetherAI(prompt, { timeout: 60000 });
+    const jsonStr = cleanJSONfromText(content);
+    if (!jsonStr) throw new Error('No se encontró JSON válido en la respuesta');
 
-        if (availableExercises.length > 0) {
-          const randomIndex = Math.floor(Math.random() * availableExercises.length);
-          const selectedId = availableExercises[randomIndex];
+    let exercisesByDay;
+    try {
+      exercisesByDay = JSON.parse(jsonStr);
 
-          dayExercises.push(selectedId);
-          usedExerciseIds.add(selectedId);
-        }
-      }
+    } catch {
+      throw new Error('JSON inválido tras limpiar la respuesta');
+    }
+    exercisesByDay = exercisesByDay.map(dayEntry => {
+  let day = dayEntry.day;
+  if (day.toLowerCase() === 'miércoles') {
+    day = 'Miercoles';
+  }
+  return { ...dayEntry, day };
+});
 
-      exercisesByDay.push({
-        day,
-        exercises: dayExercises
-      });
-    });
+    if (!Array.isArray(exercisesByDay) || exercisesByDay.length !== 5)
+      throw new Error('JSON no tiene 5 días');
 
     const table = new ExerciseTable({
-      name: 'Full Body 3 Días',
+      name: 'Full Body 5 Días',
       exercisesByDay,
       user: userId
     });
-
     await table.save();
 
     return table;
+
   } catch (error) {
-    console.error(error);
-    throw new Error('Error generando la tabla full body');
+    console.error('Error en createAutoFullBodyTable:', error);
+    throw new Error(`Error generando tabla full body: ${error.message}`);
   }
+};
+const muscleGroupsByDay = {
+  Lunes: ['Pectorales'],
+  Martes: ['Hombros'],
+  Miercoles: ['Piernas', 'Gemelos'],
+  Jueves: ['Bíceps', 'Tríceps'],
+  Viernes: ['Espalda'],
+};
+function groupExercisesByDay(allExercises) {
+  const result = {};
+
+  for (const [day, muscles] of Object.entries(muscleGroupsByDay)) {
+    result[day] = allExercises.filter(ex =>
+      muscles.some(muscle => muscle.toLowerCase() === ex.muscle.toLowerCase())
+    );
+  }
+
+  return result;
 }
 const createAutoTable = async (userId, requiredGym) => {
-  try{
-  const allExercises = await Exercise.find({ requiredGym });
+       try {
+    if (!process.env.API_KEY) throw new Error('API_KEY no definida');
 
-  const muscleGroups = [
-    'Piernas',
-    'Pectorales',
-    'Espalda',
-    'Hombros',
-    'Bíceps',
-    'Tríceps',
-    'Abdominales',
-    'Gemelos'
-  ];
+    const allExercises = await Exercise.find({ requiredGym });
+    if (!allExercises.length) throw new Error('No se encontraron ejercicios');
 
-  const exercisesByMuscle = {};
-  muscleGroups.forEach(muscle => {
-    exercisesByMuscle[muscle] = shuffleArray(
-      allExercises.filter(e => e.muscle === muscle)
-    );
-  });
+    const exercisesByDayFiltered = groupExercisesByDay(allExercises);
 
-  const days = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
-  const usedExerciseIds = new Set();
+    const exercisesListStr = Object.entries(exercisesByDayFiltered)
+      .map(([day, exercises]) => {
+        const entries = exercises
+          .map(e => `${e._id.toString()}: ${e.name}`)
+          .join('\n');
+        return `Ejercicios para ${day}:\n${entries}`;
+      })
+      .join('\n\n');
 
-  const exercisesByDay = [];
+    const prompt = `
+Eres un entrenador experto que crea tablas para usuarios avanzados.
+Genera una rutina semanal (Lunes a Viernes), enfocando cada día en uno o varios grupos musculares diferentes.
+Cada día debe contener al menos 4 y como máximo 7 ejercicios, sin repetir ninguno.
+Usa SOLO los ejercicios listados para cada día.
 
-  for (const day of days) {
-    let dayExercises = [];
+**Distribución de grupos musculares:**
+Lunes: Pectorales  
+Martes: Hombros  
+Miércoles: Piernas y Gemelos  
+Jueves: Bíceps y Tríceps  
+Viernes: Espalda
 
-    let primaryMuscle = muscleGroups.find(
-      m => exercisesByMuscle[m]?.length > 0
-    );
+⚠️ IMPORTANTE: 
+- El jueves, asegúrate de que haya al menos 2 a 3 ejercicios para bíceps y al menos 2 a 3 ejercicios para tríceps (el resto puede ser de cualquiera de los dos).
+- No inventes ningún ID. Usa solo IDs válidos.
 
-    if (!primaryMuscle) break;
+Devuelve SOLO un JSON válido con este formato:
 
-    switch (primaryMuscle) {
-      case 'Bíceps':
-        dayExercises.push(
-          ...exercisesByMuscle['Bíceps'].splice(0, 3).map(e => e._id)
+[
+  { "day": "Lunes", "exercises": ["id1", "id2", "id3", "id4", "id5"] },
+  { "day": "Martes", "exercises": ["id6", "id7", "id8", "id9", "id10"] },
+  { "day": "Miercoles", "exercises": ["id11", "id12", "id13", "id14", "id15"] },
+  { "day": "Jueves", "exercises": ["id16", "id17", "id18", "id19", "id20"] },
+  { "day": "Viernes", "exercises": ["id21", "id22", "id23", "id24", "id25"] }
+]
+
+${exercisesListStr}
+`;
+
+    const content = await callTogetherAI(prompt, { timeout: 60000 });
+
+    const jsonStr = cleanJSONfromText(content);
+    if (!jsonStr) throw new Error('No se encontró JSON válido en la respuesta');
+
+    let exercisesByDay;
+    try {
+      exercisesByDay = JSON.parse(jsonStr);
+    } catch {
+      throw new Error('JSON inválido tras limpiar la respuesta');
+    }
+
+    exercisesByDay = exercisesByDay.map(dayEntry => {
+      let day = dayEntry.day;
+      if (day.toLowerCase() === 'miércoles') {
+        day = 'Miercoles';
+      }
+      return { ...dayEntry, day };
+    });
+
+    if (!Array.isArray(exercisesByDay) || exercisesByDay.length !== 5)
+      throw new Error('JSON no tiene 5 días');
+
+    for (const dayEntry of exercisesByDay) {
+      const validMuscles = muscleGroupsByDay[dayEntry.day];
+      if (!validMuscles) throw new Error(`Día inválido: ${dayEntry.day}`);
+
+      if (
+        !Array.isArray(dayEntry.exercises) ||
+        dayEntry.exercises.length < 5 ||
+        dayEntry.exercises.length > 8
+      ) {
+        throw new Error(
+          `El día ${dayEntry.day} debe tener entre 5 y 8 ejercicios. Tiene ${dayEntry.exercises.length}.`
         );
-        dayExercises.push(
-          ...exercisesByMuscle['Tríceps'].splice(0, 3).map(e => e._id)
-        );
-        break;
+      }
 
-      case 'Piernas':
-        dayExercises.push(
-          ...exercisesByMuscle['Piernas'].splice(0, 5).map(e => e._id)
-        );
-        if (exercisesByMuscle['Gemelos'].length > 0) {
-          dayExercises.push(
-            exercisesByMuscle['Gemelos'].splice(0, 1)[0]._id
+      for (const exerciseId of dayEntry.exercises) {
+        const exercise = allExercises.find(e => e._id.toString() === exerciseId);
+        if (!exercise) throw new Error(`Ejercicio con id ${exerciseId} no encontrado.`);
+
+        if (
+          !validMuscles.some(
+            muscle => muscle.toLowerCase() === exercise.muscle.toLowerCase()
+          )
+        ) {
+          throw new Error(
+            `Ejercicio ${exercise.name} (id ${exerciseId}) del día ${dayEntry.day} no pertenece a los grupos musculares asignados (${validMuscles.join(
+              ', '
+            )}).`
           );
         }
-        break;
-
-      default:
-        dayExercises.push(
-          ...exercisesByMuscle[primaryMuscle].splice(0, 6).map(e => e._id)
-        );
-        break;
+      }
     }
 
-    if (primaryMuscle === 'Hombros' && exercisesByMuscle['Abdominales'].length > 0) {
-      const abExercise = exercisesByMuscle['Abdominales'].shift();
-      dayExercises.push(abExercise._id);
-    }
-    if (primaryMuscle === 'Piernas' && exercisesByMuscle['Abdominales'].length > 0) {
-      const abExercise = exercisesByMuscle['Abdominales'].shift();
-      dayExercises.push(abExercise._id);
-    }
-
-    dayExercises = dayExercises.filter(id => !usedExerciseIds.has(id));
-    dayExercises.forEach(id => usedExerciseIds.add(id));
-
-    exercisesByDay.push({
-      day,
-      exercises: dayExercises
+    const table = new ExerciseTable({
+      name: `Tabla automática - ${requiredGym ? 'Gimnasio' : 'Casa'}`,
+      exercisesByDay,
+      user: userId,
     });
-  }
-  const exerciseTable = new ExerciseTable({
-    name: `Tabla automática - ${requiredGym ? 'Gimnasio' : 'Casa'}`,
-    exercisesByDay,
-    user: userId
-  });
 
-  await exerciseTable.save();
-  return exerciseTable;
-  }catch(err){
-    console.error(err);
-    throw new Error('Error generando la tabla automátizada');
+    await table.save();
+    return table;
+  } catch (error) {
+    console.error('Error en createAutoTable:', error);
+    throw new Error(`Error generando tabla avanzada: ${error.message}`);
   }
-
 };
 const getImagesForExerciseTable = async (tableId) => {
    const table = await ExerciseTable.findById(tableId)
