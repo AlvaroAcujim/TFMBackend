@@ -3,7 +3,7 @@ const Exercise = require('../models/Exercise');
 const {getImagesBase64ByFilenames} =  require('../services/fileService');
 const axios = require('axios');
 //const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
-//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
+
 const createExerciseTable = async (user, data) => {
   try {
     const { name, exercisesByDay } = data;
