@@ -22,8 +22,8 @@ const createUserValidations = [
     body('password')
         .notEmpty()
         .withMessage('La password es requerida')
-        .isLength({ min: 8 })
-        .withMessage('La contraseña debe tener al menos 8 caracteres'), 
+        .isLength({ min: 6 })
+        .withMessage('La contraseña debe tener al menos 6 caracteres'), 
     body('email')
         .notEmpty()
         .withMessage('El email es requerido')
@@ -61,8 +61,8 @@ const loginValidation = [
     body('password')
         .notEmpty()
         .withMessage('La password es requerida')
-        .isLength({ min: 8 })
-        .withMessage('La contraseña debe tener al menos 8 caracteres'),
+        .isLength({ min: 6 })
+        .withMessage('La contraseña debe tener al menos 6 caracteres'),
     validateResult
 ];
 
